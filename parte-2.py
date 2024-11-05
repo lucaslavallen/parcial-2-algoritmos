@@ -1,86 +1,119 @@
-
+from cola import Queue
+from heap import HeapMin
+from pila import Stack
 
 class Graph:
-    def __init__(self):
-        self.vertices = {}
+    def __init__(self, dirigido=True):
+        self.elements = []
+        self.dirigido = dirigido
 
-    def add_vertex(self, character):
-        if character not in self.vertices:
-            self.vertices[character] = {}
+    def search(self, value):
+        for index, element in enumerate(self.elements):
+            if element['value'] == value:
+                return index
+        return None
 
-    def add_edge(self, from_character, to_character, episodes):
-        self.add_vertex(from_character)
-        self.add_vertex(to_character)
-        self.vertices[from_character][to_character] = episodes
-        self.vertices[to_character][from_character] = episodes  # Grafo no dirigido
+    def insert_vertice(self, value):
+        nodo = {
+            'value': value,
+            'aristas': [],
+            'visitado': False,
+        }
+        self.elements.append(nodo)
 
-    def minimum_spanning_tree(self):
-        if not self.vertices:
-            return []
+    def insert_arista(self, origen, destino, peso):
+        pos_origen = self.search(origen)
+        pos_destino = self.search(destino)
+        if pos_origen is not None and pos_destino is not None:
+            arista = {
+                'value': destino,
+                'peso': peso
+            }
+            self.elements[pos_origen]['aristas'].append(arista)
+            if not self.dirigido:
+                arista = {
+                    'value': origen,
+                    'peso': peso
+                }
+                self.elements[pos_destino]['aristas'].append(arista)
 
-        start_vertex = next(iter(self.vertices))
-        visited = set([start_vertex])
-        edges = []
+    def kruskal_con_yoda(self):
+        def buscar_en_bosque(bosque, buscado):
+            for index, arbol in enumerate(bosque):
+                if buscado in arbol:
+                    return index
+            return None
 
-        while len(visited) < len(self.vertices):
-            min_edge = (None, None, float('inf'))
-            for vertex in visited:
-                for adjacent, weight in self.vertices[vertex].items():
-                    if adjacent not in visited and weight < min_edge[2]:
-                        min_edge = (vertex, adjacent, weight)
-            if min_edge[0] is not None:
-                edges.append(min_edge)
-                visited.add(min_edge[1])
+        bosque = []
+        aristas = HeapMin()
+        contiene_yoda = False
 
-        return edges
+        for nodo in self.elements:
+            bosque.append([nodo['value']])
+            if nodo['value'] == 'Yoda':
+                contiene_yoda = True
+            for adyacente in nodo['aristas']:
+                aristas.arrive((nodo['value'], adyacente['value'], adyacente['peso']), adyacente['peso'])
 
-    def has_character(self, character):
-        return character in self.vertices
+        arbol_minimo = []
 
-    def max_episodes_shared(self):
-        max_count = 0
-        characters = (None, None)
+        while len(bosque) > 1 and len(aristas.elements) > 0:
+            peso, (origen, destino, _) = aristas.atention()
+            pos_origen = buscar_en_bosque(bosque, origen)
+            pos_destino = buscar_en_bosque(bosque, destino)
 
-        for char1, neighbors in self.vertices.items():
-            for char2, count in neighbors.items():
-                if count > max_count:
-                    max_count = count
-                    characters = (char1, char2)
+            if pos_origen is not None and pos_destino is not None and pos_origen != pos_destino:
+                bosque[pos_origen].extend(bosque.pop(pos_destino))
+                arbol_minimo.append((origen, destino, peso))
 
-        return characters, max_count
+        contiene_yoda = any('Yoda' in arbol for arbol in bosque)
+        return arbol_minimo, contiene_yoda
+
+    def max_episodios_compartidos(self):
+        max_episodios = 0
+        personajes = (None, None)
+
+        for nodo in self.elements:
+            for adyacente in nodo['aristas']:
+                if adyacente['peso'] > max_episodios:
+                    max_episodios = adyacente['peso']
+                    personajes = (nodo['value'], adyacente['value'])
+
+        return personajes, max_episodios
 
 
-# Crear grafo y agregar personajes y relaciones
-star_wars_graph = Graph()
-star_wars_graph.add_edge('Luke Skywalker', 'Darth Vader', 5)
-star_wars_graph.add_edge('Luke Skywalker', 'Yoda', 3)
-star_wars_graph.add_edge('Darth Vader', 'Yoda', 4)
-star_wars_graph.add_edge('Boba Fett', 'Darth Vader', 2)
-star_wars_graph.add_edge('C-3PO', 'Leia', 4)
-star_wars_graph.add_edge('Leia', 'Yoda', 2)
-star_wars_graph.add_edge('Rey', 'Kylo Ren', 3)
-star_wars_graph.add_edge('Chewbacca', 'Han Solo', 5)
-star_wars_graph.add_edge('R2-D2', 'BB-8', 1)
-star_wars_graph.add_edge('Han Solo', 'Leia', 6)
-star_wars_graph.add_edge('Kylo Ren', 'Darth Vader', 2)
-star_wars_graph.add_edge('Luke Skywalker', 'R2-D2', 3)
+ 
+grafo = Graph(dirigido=False)
+personajes = [
+    'Luke Skywalker', 'Darth Vader', 'Yoda', 'Boba Fett', 'C-3PO', 'Leia', 
+    'Rey', 'Kylo Ren', 'Chewbacca', 'Han Solo', 'R2-D2', 'BB-8'
+]
 
-# a) Mostrar el grafo
-print("Grafo de personajes de Star Wars:")
-for character, connections in star_wars_graph.vertices.items():
-    print(f"{character}: {connections}")
+for personaje in personajes:
+    grafo.insert_vertice(personaje)
 
-# b) Hallar el árbol de expansión mínimo
-mst = star_wars_graph.minimum_spanning_tree()
-print("\nÁrbol de expansión mínimo:")
-for edge in mst:
-    print(f"{edge[0]} <--> {edge[1]} (Episodios: {edge[2]})")
 
-# Determinar si contiene a Yoda
-contains_yoda = star_wars_graph.has_character('Yoda')
-print("\n¿Contiene a Yoda en el árbol de expansión mínimo?:", contains_yoda)
+grafo.insert_arista('Luke Skywalker', 'Darth Vader', 4)
+grafo.insert_arista('Luke Skywalker', 'Yoda', 2)
+grafo.insert_arista('Luke Skywalker', 'Leia', 5)
+grafo.insert_arista('Luke Skywalker', 'Han Solo', 3)
+grafo.insert_arista('Leia', 'Han Solo', 5)
+grafo.insert_arista('Leia', 'C-3PO', 6)
+grafo.insert_arista('Leia', 'R2-D2', 6)
+grafo.insert_arista('Han Solo', 'Chewbacca', 7)
+grafo.insert_arista('Han Solo', 'Leia', 5)
+grafo.insert_arista('Rey', 'Kylo Ren', 3)
+grafo.insert_arista('Rey', 'BB-8', 2)
+grafo.insert_arista('R2-D2', 'C-3PO', 6)
+grafo.insert_arista('Yoda', 'Chewbacca', 1)
+grafo.insert_arista('Boba Fett', 'Darth Vader', 2)
 
-# c) Determinar el número máximo de episodios que comparten dos personajes
-shared_characters, max_episodes = star_wars_graph.max_episodes_shared()
-print("\nNúmero máximo de episodios que comparten dos personajes:")
-print(f"{shared_characters[0]} y {shared_characters[1]}: {max_episodes} episodios")
+
+arbol_minimo, contiene_yoda = grafo.kruskal_con_yoda()
+print("Árbol de expansión mínimo:", arbol_minimo)
+print("Contiene a Yoda:", contiene_yoda)
+
+
+personajes_max_episodios, max_episodios = grafo.max_episodios_compartidos()
+print("Personajes con el máximo de episodios compartidos:", personajes_max_episodios)
+print("Número máximo de episodios compartidos:", max_episodios)
